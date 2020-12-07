@@ -1,11 +1,11 @@
 package adal
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"log"
 	"math/big"
@@ -28,6 +28,8 @@ import (
 
 //PoPKey - generic interface for PoP key properties and methods
 type PoPKey interface {
+	// encryption/signature algo
+	Alg() string
 	// kid
 	KeyID() string
 	// jwk that can be embedded in JWT w/ PoP token's cnf claim
@@ -49,6 +51,10 @@ type swKey struct {
 	reqCnf string
 }
 
+func (swk *swKey) Alg() string {
+	return "RS256"
+}
+
 func (swk *swKey) KeyID() string {
 	return swk.keyID
 }
@@ -65,8 +71,8 @@ func (swk *swKey) ReqCnf() string {
 	return swk.reqCnf
 }
 
-func (swk *swKey) Sign([]byte) ([]byte, error) {
-	return nil, errors.New("not implemented")
+func (swk *swKey) Sign(payload []byte) ([]byte, error) {
+	return swk.key.Sign(rand.Reader, payload, crypto.SHA256)
 }
 
 func (swk *swKey) init(key *rsa.PrivateKey) {
@@ -100,7 +106,8 @@ func (swk *swKey) init(key *rsa.PrivateKey) {
 
 func generateSwKey() (*swKey, error) {
 	swk := &swKey{}
-	key, err := rsa.GenerateKey(rand.Reader, 256)
+	//TODO - decide on good key size for popkey that would be rotated frequently
+	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +130,8 @@ func getSwPoPKey() *swKey {
 	if err != nil {
 		log.Fatal("unable to generate popkey")
 	}
-	fmt.Println(*pswKey)
+
+	//TODO: rotate key
+
 	return pswKey
 }
