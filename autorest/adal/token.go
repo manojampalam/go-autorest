@@ -1030,7 +1030,7 @@ func (spt *ServicePrincipalToken) refreshInternal(ctx context.Context, resource 
 	spt.inner.Token.Resource = token.Resource
 	spt.inner.Token.Type = token.Type
 
-	//if we managed to get a pop token, add reference to pop key
+	//if we managed to get a pop token from AAD, add reference to pop key
 	if token.Type == "pop" {
 		spt.inner.Token.poPKey = poPKey
 	}

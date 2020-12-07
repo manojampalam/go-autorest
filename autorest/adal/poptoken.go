@@ -3,6 +3,7 @@ package adal
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -20,8 +21,11 @@ func (spt *ServicePrincipalToken) EnablePoP() {
 // host is included as "u" claim
 func (tkn *Token) AcquirePoPTokenForHost(host string) (string, error) {
 
+	if tkn.Type != "pop" {
+		return "", errors.New("token does not support pop semantics")
+	}
+
 	ts := time.Now().Unix()
-	//TODO - generate random nonce
 	nonce := uuid.New().String()
 	nonce = strings.Replace(nonce, "-", "", -1)
 	header := fmt.Sprintf(`{"typ":"pop","alg":"%s","kid":"%s"}`, tkn.poPKey.Alg(), tkn.poPKey.KeyID())

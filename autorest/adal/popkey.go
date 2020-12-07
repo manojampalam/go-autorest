@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/big"
 	"sync"
+	"time"
 )
 
 // Copyright 2017 Microsoft Corporation
@@ -106,7 +107,7 @@ func (swk *swKey) init(key *rsa.PrivateKey) {
 
 func generateSwKey() (*swKey, error) {
 	swk := &swKey{}
-	//TODO - decide on good key size for popkey that would be rotated frequently
+	// 1024 good enough for rsa popkey that would be rotated frequently ?
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		return nil, err
@@ -125,13 +126,27 @@ func getSwPoPKey() *swKey {
 	if pswKey != nil {
 		return pswKey
 	}
-	var err error
-	pswKey, err = generateSwKey()
+
+	key, err := generateSwKey()
 	if err != nil {
 		log.Fatal("unable to generate popkey")
 	}
+	pswKey = key
 
-	//TODO: rotate key
+	//rotate key every 12 hours ?
+	ticker := time.NewTicker(12 * time.Hour)
+	go func() {
+		for {
+			<-ticker.C
+			key, err := generateSwKey()
+			if err != nil {
+				log.Fatal("unable to generate popkey")
+			}
+			pwsKeyMutex.Lock()
+			pswKey = key
+			pwsKeyMutex.Unlock()
+		}
+	}()
 
 	return pswKey
 }
