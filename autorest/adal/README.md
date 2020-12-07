@@ -266,7 +266,8 @@ spt.EnablePoP()
 err  = spt.Refresh()
 ...
 
-// to acquire a pop access token bound to a particular host, ensure AAD access token is fresh first
+...
+// to acquire a pop access token bound to a particular host
 err = spt.EnsureFresh()
 if (err == nil) {
     popToken, err := spt.Token().AcquirePoPTokenForHost("my.host.com")
