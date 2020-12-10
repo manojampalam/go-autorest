@@ -32,9 +32,8 @@ func (tkn *Token) AcquirePoPTokenForHost(host string) (string, error) {
 	headerB64 := base64.RawURLEncoding.EncodeToString([]byte(header))
 	payload := fmt.Sprintf(`{"at":"%s","ts":%d,"u":"%s","cnf":{"jwk":%s},"nonce":"%s"}`, tkn.AccessToken, ts, host, tkn.poPKey.JWK(), nonce)
 	payloadB64 := base64.RawURLEncoding.EncodeToString([]byte(payload))
-	h256 := sha256.New()
-	h256.Write([]byte(headerB64 + "." + payloadB64))
-	signature, err := tkn.poPKey.Sign(h256.Sum(nil))
+	h256 := sha256.Sum256([]byte(headerB64 + "." + payloadB64))
+	signature, err := tkn.poPKey.Sign(h256[:])
 	if err != nil {
 		return "", err
 	}

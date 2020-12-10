@@ -922,7 +922,7 @@ func (spt *ServicePrincipalToken) refreshInternal(ctx context.Context, resource 
 		v := url.Values{}
 		v.Set("client_id", spt.inner.ClientID)
 		v.Set("resource", resource)
-		if spt.enablePoP == true {
+		if spt.enablePoP {
 			v.Set("token_type", "pop")
 			poPKey = getSwPoPKey()
 			v.Set("req_cnf", poPKey.ReqCnf())
