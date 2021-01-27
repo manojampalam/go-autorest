@@ -1,11 +1,16 @@
 package adal
 
 import (
-	"errors"
+	"bytes"
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
+	"math/big"
 	"testing"
 
 	jwt "github.com/form3tech-oss/jwt-go"
+	ms "github.com/mitchellh/mapstructure"
 )
 
 func TestAcquirePoPTokenForHost(t *testing.T) {
@@ -18,7 +23,7 @@ func TestAcquirePoPTokenForHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(popToken)
+	//fmt.Println(popToken)
 	_, err = jwt.Parse(popToken, func(token *jwt.Token) (interface{}, error) {
 		kid := ""
 		if len(token.Header) != 3 {
@@ -55,15 +60,41 @@ func TestAcquirePoPTokenForHost(t *testing.T) {
 			t.Fatalf("no nonce claim")
 		}
 
-		if cnf := claims["cnf"]; cnf == nil {
+		var cnf map[string]interface{}
+		if cnf = claims["cnf"].(map[string]interface{}); cnf == nil {
 			t.Fatalf("no cnf claim")
 		}
 
-		//TODO parse, hydrate public key and return
-		return nil, errors.New("not supported yet")
+		//decode public key from cnf claim
+		type JWK struct {
+			E   string `mapstructure:"e"`
+			N   string `mapstructure:"n"`
+			Kty string `mapstructure:"kty"`
+		}
+		var jwk JWK
+		err = ms.Decode(cnf["jwk"], &jwk)
+		if err != nil {
+			t.Fatalf("unable to decode pop public key %v", err)
+		}
+		if jwk.Kty != "RSA" {
+			t.Fatalf("wrong PoP public key type %s", jwk.Kty)
+		}
+
+		n, _ := base64.RawURLEncoding.DecodeString(jwk.N)
+		e, _ := base64.RawURLEncoding.DecodeString(jwk.E)
+		z := new(big.Int)
+		z.SetBytes(n)
+
+		var buffer bytes.Buffer
+		buffer.WriteByte(0)
+		buffer.Write(e)
+		exponent := binary.BigEndian.Uint32(buffer.Bytes())
+		publicKey := &rsa.PublicKey{N: z, E: int(exponent)}
+
+		return publicKey, nil
 	})
 	if err != nil {
-		fmt.Println("cannot parse token - ", err)
+		t.Fatalf("cannot validate pop token - %v", err)
 	}
 }
 
@@ -102,25 +133,4 @@ func TestPopTokenE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println(popToken)
-
-	jwtToken, err := jwt.Parse(popToken, func(token *jwt.Token) (interface{}, error) {
-		kidInt := token.Header["kid"]
-		if kidInt == nil {
-			return nil, errors.New("no kid found in header")
-		}
-		kid, ok := kidInt.(string)
-		if ok == false {
-			return nil, errors.New("kid is not a string")
-		}
-		fmt.Println(kid)
-		return nil, errors.New("not supported yet")
-	})
-	if err != nil {
-		fmt.Println("cannot parse token - ", err)
-	}
-
-	claims := jwtToken.Claims.(jwt.MapClaims)
-	if claims["iat"] == nil || claims["tid"] == nil {
-		fmt.Println("token did not have tid or iat fields")
-	}
 }
